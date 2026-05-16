@@ -1,0 +1,69 @@
+{
+  "entities": {
+    "Property": {
+      "title": "Property",
+      "description": "A real estate property listed in the system registry",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "price": { "type": "number" },
+        "city": { "type": "string", "enum": ["Riyadh", "Jeddah", "Dammam", "Khobar", "Mecca", "Medina"] },
+        "district": { "type": "string" },
+        "location": { "type": "string" },
+        "propertyType": { "type": "string", "enum": ["Villa", "Apartment", "Land", "Building", "Floor", "Warehouse", "Showroom"] },
+        "usage": { "type": "string", "enum": ["Residential", "Commercial", "Industrial", "Agricultural"] },
+        "purpose": { "type": "string", "enum": ["Sale", "Rent"] },
+        "areaSize": { "type": "number" },
+        "description": { "type": "string" },
+        "brokerId": { "type": "string" },
+        "brokerName": { "type": "string" },
+        "verificationStatus": { "type": "string", "enum": ["pending", "verified", "rejected"] },
+        "isOriginal": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "price", "city", "district", "location", "propertyType", "usage", "purpose", "areaSize", "description", "brokerId", "brokerName", "verificationStatus", "isOriginal", "createdAt", "updatedAt"]
+    },
+    "Broker": {
+      "title": "Broker",
+      "description": "A registered real estate broker",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "licenseNumber": { "type": "string" },
+        "licenseType": { "type": "string", "enum": ["VAL", "MOUTHOQ"] },
+        "rating": { "type": "number" },
+        "phone": { "type": "string" }
+      },
+      "required": ["userId", "name", "licenseNumber"]
+    },
+    "AnalyticsReport": {
+      "title": "Analytics Report",
+      "description": "AI-generated market analysis for a property",
+      "type": "object",
+      "properties": {
+        "propertyId": { "type": "string" },
+        "analysisType": { "type": "string" },
+        "content": { "type": "string" },
+        "priceFairness": { "type": "string" },
+        "demandIndex": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  },
+  "firestore": {
+    "properties": {
+      "schema": "Property",
+      "description": "Records of all properties with their origin tracking"
+    },
+    "brokers": {
+      "schema": "Broker",
+      "description": "Verified real estate professionals"
+    },
+    "reports": {
+      "schema": "AnalyticsReport",
+      "description": "AI analysis reports for market insights"
+    }
+  }
+}

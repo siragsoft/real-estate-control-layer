@@ -1,0 +1,99 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isOwner(data) {
+      return data.brokerId == request.auth.uid;
+    }
+
+    // --- Validation Blueprints ---
+
+    function isValidProperty(data) {
+      return data.keys().hasAll(['title', 'price', 'city', 'propertyType', 'brokerId', 'createdAt', 'updatedAt', 'verificationStatus', 'areaSize', 'district'])
+          && data.keys().size() == 10
+          && data.title is string && data.title.size() <= 200
+          && data.price is number && data.price >= 0
+          && data.city in ['Riyadh', 'Jeddah', 'Dammam', 'Khobar', 'Mecca', 'Medina']
+          && data.propertyType in ['Villa', 'Apartment', 'Land', 'Building', 'Floor', 'Warehouse', 'Showroom']
+          && data.brokerId == request.auth.uid
+          && data.verificationStatus in ['pending', 'verified', 'rejected']
+          && data.areaSize is number && data.areaSize > 0
+          && data.district is string && data.district.size() <= 100;
+    }
+
+    function isValidBroker(data) {
+      return data.keys().hasAll(['userId', 'name', 'licenseNumber', 'licenseType', 'rating', 'phone'])
+          && data.keys().size() == 6
+          && data.userId == request.auth.uid
+          && data.name is string && data.name.size() <= 100
+          && data.licenseNumber is string && data.licenseNumber.size() <= 50
+          && data.licenseType in ['VAL', 'MOUTHOQ']
+          && data.rating is number
+          && data.phone is string;
+    }
+
+    // --- Collections ---
+
+    match /properties/{propertyId} {
+      // Secure List Queries: Explicitly evaluate resource.data to prevent query scraping
+      allow list: if isSignedIn() && resource.data.verificationStatus == 'verified';
+      allow get: if true; // Public access to verified properties
+
+      allow create: if isEmailVerified() && isValidId(propertyId) && isValidProperty(incoming())
+                     && incoming().verificationStatus == 'pending'
+                     && incoming().createdAt == request.time
+                     && incoming().updatedAt == request.time;
+
+      allow update: if isEmailVerified() && isOwner(existing()) && isValidProperty(incoming())
+                     && (
+                       // Action: Basic update (Price & Description)
+                       (incoming().diff(existing()).affectedKeys().hasOnly(['title', 'price', 'description', 'updatedAt', 'areaSize', 'district']))
+                       ||
+                       // Action: Status Update (if the app logic allows owners to 'archive' or similar)
+                       (incoming().diff(existing()).affectedKeys().hasOnly(['verificationStatus', 'updatedAt']))
+                     )
+                     && incoming().updatedAt == request.time
+                     && incoming().createdAt == existing().createdAt
+                     && incoming().brokerId == existing().brokerId;
+
+      allow delete: if isEmailVerified() && isOwner(existing());
+    }
+
+    match /brokers/{brokerId} {
+      allow read: if true;
+      allow create: if isEmailVerified() && brokerId == request.auth.uid && isValidBroker(incoming());
+      allow update: if isEmailVerified() && brokerId == request.auth.uid && isValidBroker(incoming())
+                     && incoming().userId == existing().userId;
+    }
+
+    match /reports/{reportId} {
+      allow read: if isSignedIn() && (isOwner(existing()) || resource.data.isPublic == true);
+      allow create: if false; // System only collection normally, or specifically restricted
+    }
+  }
+}
